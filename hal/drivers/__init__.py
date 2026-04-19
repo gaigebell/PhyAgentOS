@@ -23,13 +23,19 @@ DRIVER_REGISTRY: dict[str, str] = {
     "simulation":  "hal.drivers.simulation_driver.SimulationDriver",
     "go2_edu":     "hal.drivers.go2_driver.Go2Driver",
     "xlerobot_2wheels_remote": "hal.drivers.xlerobot_2wheels_remote_driver.XLerobot2WheelsRemoteDriver",
-    
+    "pipergo2_manipulation": "hal.drivers.pipergo2_manipulation_driver.PiperGo2ManipulationDriver",
     # Franka Research 3 驱动
     # Franka Research 3 Driver
     "franka_research3": "hal.drivers.franka_driver.FrankaDriver",          # 原始 pylibfranka 驱动
     "franka_multi": "hal.drivers.franka_multi_backend_driver.FrankaMultiBackendDriver",  # 多后端协商驱动
-    
-    
+
+    # Franka Simulation 驱动 (Isaac Sim)
+    "franka_simulation": "hal.drivers.franka_simulation_driver.FrankaSimulationDriver",  # Isaac Sim 仿真驱动
+
+    # G1 Simulation 驱动 (Isaac Sim) - 人形机器人 locomotion
+    "g1_simulation": "hal.drivers.g1_simulation_driver.G1SimulationDriver",  # Isaac Sim 仿真驱动
+
+
     # Future drivers — uncomment when implemented:
     # "desktop_pet": "hal.drivers.desktop_pet_driver.DesktopPetDriver",
     # "dobot_nova5": "hal.drivers.dobot_driver.DobotDriver",
