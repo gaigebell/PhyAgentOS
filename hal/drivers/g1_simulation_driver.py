@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from hal.base_driver import BaseDriver
+from hal.simulation.isaac_scene_bootstrap import bootstrap_isaac_scene
 
 _PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
 
@@ -56,6 +57,13 @@ class G1SimulationDriver(BaseDriver):
         self._last_idle_step_ts = 0.0
 
         self._api_kwargs = dict(kwargs.get("api_kwargs", {}))
+        self._collision_patch = bool(kwargs.get("enable_static_scene_mesh_collision_patch", True))
+
+        self._room_lighting = str(kwargs.get("room_lighting", "none")).strip().lower()
+        self._camera_eye_offset = tuple(kwargs.get("camera_eye_offset", (-2.8, -2.2, 1.8)))
+        self._camera_target_z_offset = float(kwargs.get("camera_target_z_offset", -0.4))
+        self._camera_target_min_z = float(kwargs.get("camera_target_min_z", 0.2))
+        self._room_bootstrap = dict(kwargs.get("room_bootstrap", {}))
 
     @staticmethod
     def _normalize_pythonpath(raw: Any) -> list[str]:
@@ -164,7 +172,7 @@ class G1SimulationDriver(BaseDriver):
     def health_check(self) -> bool:
         if self._idle_step_enabled:
             self._idle_step_if_due()
-        return True
+        return self._api is not None
 
     def close(self) -> None:
         self._close_api({})
@@ -196,8 +204,34 @@ class G1SimulationDriver(BaseDriver):
             robot_position=self._robot_position,
             api_kwargs=api_kwargs,
         )
+        # internutopia.core.gym_env.Env has .step / .get_observations on itself (no nested _env).
+        self._env = self._api
+        try:
+            self._last_obs, _ = self._api.reset()
+        except Exception:
+            self._last_obs = None
 
-        self._env = getattr(self._api, "_env", None)
+        rb = dict(self._room_bootstrap)
+        rb.update(params.get("room_bootstrap") or {})
+        boot_steps: list[str] = []
+        if rb.get("enabled") is True and not params.get("skip_room_bootstrap"):
+            lighting_mode = str(rb.get("lighting", self._room_lighting)).strip()
+            apply_lighting = bool(rb.get("apply_lighting", True))
+            focus_camera = bool(rb.get("focus_camera", rb.get("focus_view_on_robot", False)))
+            boot_steps = bootstrap_isaac_scene(
+                self._api,
+                robot_xy=(float(self._robot_position[0]), float(self._robot_position[1])),
+                robot_z=float(self._robot_position[2]),
+                lighting_mode=lighting_mode,
+                camera_eye_offset=self._camera_eye_offset,
+                camera_target_z_offset=self._camera_target_z_offset,
+                camera_target_min_z=self._camera_target_min_z,
+                apply_lighting=apply_lighting,
+                focus_camera=focus_camera,
+            )
+
+        if boot_steps:
+            return f"G1 Simulation API started. bootstrap[{','.join(boot_steps)}]"
         return "G1 Simulation API started."
 
     def _build_api(self, *, scene_asset_path: str, robot_position: tuple[float, ...], api_kwargs: dict[str, Any]):
@@ -235,9 +269,14 @@ class G1SimulationDriver(BaseDriver):
         tasks = importlib.import_module("internutopia_extension.configs.tasks")
         SingleInferenceTaskCfg = tasks.SingleInferenceTaskCfg
 
+        # Piper-style configs use force_gui; SimConfig only has headless.
+        force_gui = api_kwargs.pop("force_gui", None)
         headless = api_kwargs.pop("headless", None)
         if headless is None:
-            headless = not self._gui
+            if force_gui is not None:
+                headless = not bool(force_gui)
+            else:
+                headless = not self._gui
 
         robot_cfg = create_g1_robot_cfg(position=robot_position)
         robot_cfg.name = "g1"
@@ -256,13 +295,12 @@ class G1SimulationDriver(BaseDriver):
                 SingleInferenceTaskCfg(
                     scene_asset_path=scene_asset_path,
                     robots=[robot_cfg],
+                    enable_static_scene_mesh_collision_patch=self._collision_patch,
                 )
             ],
         )
         import_extensions()
-        env = Env(config)
-        env.reset()
-        return env
+        return Env(config)
 
     def _close_api(self, _params: dict[str, Any]) -> str:
         if self._api is None:

@@ -2,9 +2,22 @@
   "_comment": "Franka Simulation Driver Configuration",
   "_参考": "InternUtopia/internutopia/demo/test3_multi_robot_debug.py 中的 Franka 设置",
 
-  "scene_asset_path": "/home/zyserver/work/my_project/InternUtopia/internutopia/demo/merom_scene_baked.usd",
+  "scene_asset_path": "examples/merom_scene_baked.usd",
 
   "robot_position": [3.46261, 8.0, 0.41172],
+
+  "_scene_post_setup": "自定义 USD 场景：删除 room_bootstrap 或设 enabled:false；需要 merom 同款时再打开。lighting: none | grey_studio | dome_fill（仅当舞台上尚无 DomeLight 时加后备灯）",
+
+  "room_lighting": "grey_studio",
+  "camera_eye_offset": [2.5, 2.5, 2.0],
+  "camera_target_z_offset": 0.0,
+  "camera_target_min_z": 0.2,
+  "room_bootstrap": {
+    "enabled": true,
+    "lighting": "grey_studio",
+    "apply_lighting": true,
+    "focus_camera": true
+  },
 
   "pause_steps": 45,
   "gripper_settle_steps": 30,
